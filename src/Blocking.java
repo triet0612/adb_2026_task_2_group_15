@@ -166,15 +166,14 @@ public class Blocking {
 			}
 		}	
 	}
-}
-
-class ConnectionFactory {
-    public static Connection getDefaultParameterConnection() throws SQLException {
-        String url = "jdbc:postgresql://localhost:5432/";
-        Properties props = new Properties();
-        // Add connection properties as needed:
-        props.setProperty("user", "pg_username");
-        props.setProperty("password", "pg_password");
-        return DriverManager.getConnection(url, props);
-    }
+	class ConnectionFactory {
+		public static Connection getDefaultParameterConnection() throws SQLException {
+			String url = "jdbc:postgresql://localhost:5432/";
+			Properties props = new Properties();
+			// Add connection properties as needed:
+			props.setProperty("user", "pg_username");
+			props.setProperty("password", "pg_password");
+			return DriverManager.getConnection(url, props);
+		}
+	}
 }

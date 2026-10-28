@@ -12,7 +12,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class RestartBlocking {
 	public static int num_taks=30;
-	public static int num_queries_per_task = 100;
+	public static int num_queries_per_task = 3;
+	public static int num_of_threads = 4;
 	
 	Connection con;
 	Random rand = new Random(123456);
@@ -77,7 +78,7 @@ public class RestartBlocking {
 		
 		//Execute tasks
 		ThreadPoolExecutor executor = 
-				  (ThreadPoolExecutor) Executors.newFixedThreadPool(4);//XXX - Do not change the number of threads used
+				  (ThreadPoolExecutor) Executors.newFixedThreadPool(num_of_threads);//XXX - Do not change the number of threads used
 		double start, stop;
 		start = System.currentTimeMillis();
 		for(Blocker task : my_tasks) {
@@ -153,14 +154,14 @@ public class RestartBlocking {
 			}
 		}
 	}
-}
-class ConnectionFactory {
-    public static Connection getDefaultParameterConnection() throws SQLException {
-        String url = "jdbc:postgresql://localhost:5432/";
-        Properties props = new Properties();
-        // Add connection properties as needed:
-        props.setProperty("user", "pg_username");
-        props.setProperty("password", "pg_password");
-        return DriverManager.getConnection(url, props);
-    }
+	class ConnectionFactory {
+		public static Connection getDefaultParameterConnection() throws SQLException {
+			String url = "jdbc:postgresql://localhost:5432/";
+			Properties props = new Properties();
+			// Add connection properties as needed:
+			props.setProperty("user", "pg_username");
+			props.setProperty("password", "pg_password");
+			return DriverManager.getConnection(url, props);
+		}
+	}
 }
