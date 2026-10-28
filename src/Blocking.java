@@ -1,9 +1,11 @@
 import java.sql.Connection;
+import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Properties;
 import java.util.Random;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -60,7 +62,7 @@ public class Blocking {
 	
 	void cerateDB(){	
 		try {
-			Connection con = ConnectionFactory.getDefaultParameterConnection(ConnectionFactory.POSTGRESQL);
+			Connection con = ConnectionFactory.getDefaultParameterConnection();
 			executeSQL("DROP TABLE IF EXISTS blocking_data;",con);
 			executeSQL("CREATE TABLE blocking_data ( data_id integer primary key, data_value float, modified_by integer);",con);
 			
@@ -139,11 +141,9 @@ public class Blocking {
 		
 		@Override
 		public void run() {
-			Connection con=null;//XXX - Yes there needs to be a separate Connection per blocking taks. Otherwise strange things can happen
-			con = ConnectionFactory.getDefaultParameterConnection(ConnectionFactory.POSTGRESQL);//XXX This is the class you need to create, but does not have to be in the Repo
-			PreparedStatement ps;
-			
-			try {	
+			try {
+				Connection con = ConnectionFactory.getDefaultParameterConnection();
+				PreparedStatement ps;
 				con.setAutoCommit(false);
 				con.setTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
 				int q = 0;
@@ -166,4 +166,15 @@ public class Blocking {
 			}
 		}	
 	}
+}
+
+class ConnectionFactory {
+    public static Connection getDefaultParameterConnection() throws SQLException {
+        String url = "jdbc:postgresql://localhost:5432/";
+        Properties props = new Properties();
+        // Add connection properties as needed:
+        props.setProperty("user", "pg_username");
+        props.setProperty("password", "pg_password");
+        return DriverManager.getConnection(url, props);
+    }
 }
