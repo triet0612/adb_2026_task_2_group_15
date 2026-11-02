@@ -178,43 +178,37 @@ public class BaseSerialBenchmark {
 		}
 
 		private void insertNewTuple(Connection conn) throws SQLException {
-			while (true) {
-				try {
-					PreparedStatement ps = conn.prepareStatement("SELECT MAX(data_id) as latest_id FROM blocking_data;");
-					ResultSet rs = ps.executeQuery();
-					rs.next();
-					int new_id = rs.getInt("latest_id") + 1;
-					double new_value = rand.nextDouble()*max_value;
-					ps = conn.prepareStatement("INSERT INTO blocking_data VALUES (?, ?, ?);");
-					ps.setInt(1, new_id);
-					ps.setDouble(2, new_value);
-					ps.setInt(3, 0);
-					ps.execute();
-					conn.commit();
-					System.out.println("Task " + task + ", Case 2, result: inserted (" + new_id + " " + new_value + " " + 0 +")" + " Finisher: "+ tasks_finished.incrementAndGet());
-					break;
-				} catch (SQLException e) {
-					conn.rollback();
-					System.err.println("Task " + task + ", Case 2, " + e.getMessage());
-					tasks_failed.incrementAndGet();
-				}
+			try {
+				PreparedStatement ps = conn.prepareStatement("SELECT MAX(data_id) as latest_id FROM blocking_data;");
+				ResultSet rs = ps.executeQuery();
+				rs.next();
+				int new_id = rs.getInt("latest_id") + 1;
+				double new_value = rand.nextDouble()*max_value;
+				ps = conn.prepareStatement("INSERT INTO blocking_data VALUES (?, ?, ?);");
+				ps.setInt(1, new_id);
+				ps.setDouble(2, new_value);
+				ps.setInt(3, 0);
+				ps.execute();
+				conn.commit();
+				System.out.println("Task " + task + ", Case 2, result: inserted (" + new_id + " " + new_value + " " + 0 +")" + " Finisher: "+ tasks_finished.incrementAndGet());
+			} catch (SQLException e) {
+				conn.rollback();
+				System.err.println("Task " + task + ", Case 2, " + e.getMessage());
+				tasks_failed.incrementAndGet();
 			}
 		}
 	
 		private void getSumOfAllTuples(Connection conn) throws SQLException {
-			while (true) {
-				try {
-					PreparedStatement ps = conn.prepareStatement("SELECT SUM(data_value) as sum_value FROM blocking_data;");
-					ResultSet rs = ps.executeQuery();
-					rs.next();
-					conn.commit();
-					System.out.println("Task " + task + ", Case 3, result: " + rs.getDouble("sum_value") + " Finisher: "+ tasks_finished.incrementAndGet());
-					break;
-				} catch (SQLException e) {
-					conn.rollback();
-					System.err.println("Task " + task + ", Case 3, " + e.getMessage());
-					tasks_failed.incrementAndGet();
-				}
+			try {
+				PreparedStatement ps = conn.prepareStatement("SELECT SUM(data_value) as sum_value FROM blocking_data;");
+				ResultSet rs = ps.executeQuery();
+				rs.next();
+				conn.commit();
+				System.out.println("Task " + task + ", Case 3, result: " + rs.getDouble("sum_value") + " Finisher: "+ tasks_finished.incrementAndGet());
+			} catch (SQLException e) {
+				conn.rollback();
+				System.err.println("Task " + task + ", Case 3, " + e.getMessage());
+				tasks_failed.incrementAndGet();
 			}
 		}
 
