@@ -3,14 +3,15 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.HashSet;
 import java.util.Properties;
 import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 
 public class BaseSerialBenchmark {
 	public static int num_queries_per_task = 3;
@@ -23,12 +24,10 @@ public class BaseSerialBenchmark {
 	double max_value = 50.0f;
 	static AtomicInteger tasks_finished;
 	static AtomicInteger tasks_failed;
-	static AtomicLong total_latency;
 	
 	public BaseSerialBenchmark(){
 		tasks_finished = new AtomicInteger(0);
 		tasks_failed = new AtomicInteger(0);
-		total_latency = new AtomicLong(0);
 		pool = new ConnectionPool(num_of_threads);
 	}
 	
@@ -74,7 +73,7 @@ public class BaseSerialBenchmark {
 		BaseSerialBenchmark b = new BaseSerialBenchmark();
 		b.cerateDB();
 		
-        BlockingQueue<Blocker> my_tasks = new LinkedBlockingQueue<Blocker>(1_000_000);
+        BlockingQueue<Blocker> my_tasks = new LinkedBlockingQueue<Blocker>(50_000);
         Thread task_producer = new Thread(() -> {
 			System.out.println("Producer start");
 			int task_id = 1;
@@ -108,58 +107,48 @@ public class BaseSerialBenchmark {
 		}
 		double throughput = tasks_finished.intValue() / (running_time / 1000.0);
 		System.out.println("Total task: " + tasks_finished + " finished, " + tasks_failed + " failed");
-		System.out.println("Remaining task: " + my_tasks.remainingCapacity());
+		System.out.println("Remaining task: " + (my_tasks.size() - my_tasks.remainingCapacity()));
 		System.out.println("Throughput: " + throughput+ " (task/sec)");
-		System.out.println("Avg latency: " + total_latency.get()/(tasks_finished.get() * 1.0) + " (ms)");
 		System.out.println("Program close");
 	}
 	
 	public class Blocker implements Runnable  {
 		final int task;
         final double type;
-		final long created_at;
 
 		public Blocker(int id){
             this.task = id;
             this.type = rand.nextDouble();
-			this.created_at = System.currentTimeMillis();
 		}
 		
 		@Override
 		public void run() {
-			while (!Thread.currentThread().isInterrupted()) {
-				try {
-					Connection conn = pool.acquire();
-					if (this.type < 0.6) {
-						getSumOfRandomTuples(conn);
-					}
-					else if (this.type >= 0.6 && this.type < 0.7) {
-						insertNewTuple(conn);
-					}
-					else if (this.type >= 0.7 && this.type < 0.8) {
-						getSumOfAllTuples(conn);
-					}
-					else if (this.type >= 0.8) {
-						updateRandomTuples(conn);
-					}
-					pool.release(conn);
-					total_latency.addAndGet(System.currentTimeMillis() - this.created_at);
-					break;
-				} catch (Exception e) {
-					e.printStackTrace();
-					return;
-				}
+			try {
+				Connection conn = pool.acquire();
+				if (this.type < 0.6)
+					getSumOfRandomTuples(conn);
+				else if (this.type >= 0.6 && this.type < 0.7)
+					insertNewTuple(conn);
+				else if (this.type >= 0.7 && this.type < 0.8)
+					getSumOfAllTuples(conn);
+				else if (this.type >= 0.8)
+					updateRandomTuples(conn);
+				pool.release(conn);
+			} catch (Exception e) {
+				e.printStackTrace();
 			}
 		}
 
 		private void getSumOfRandomTuples(Connection conn) throws SQLException {
 			try {
-				PreparedStatement ps = conn.prepareStatement("SELECT MIN(data_id) as min_data_id, MAX(data_id) as max_data_id FROM blocking_data;");
+				PreparedStatement ps = conn.prepareStatement("SELECT MAX(data_id) as max_data_id FROM blocking_data;");
 				ResultSet rs = ps.executeQuery();
 				rs.next();
-				int lower = rs.getInt("min_data_id");
-				int upper = rs.getInt("max_data_id");
-				int[] ids = ThreadLocalRandom.current().ints(lower, upper).distinct().limit(num_queries_per_task).toArray();
+				int max = rs.getInt("max_data_id");
+				Set<Integer> ids = new HashSet<Integer>();
+				while (ids.size() < num_queries_per_task) {
+					ids.add(ThreadLocalRandom.current().nextInt(0, max));
+				}
 				int sum = 0;
 				ps = conn.prepareStatement("SELECT data_value FROM blocking_data WHERE data_id = ?;");
 				for (int id : ids) {
@@ -214,12 +203,14 @@ public class BaseSerialBenchmark {
 
 		private void updateRandomTuples(Connection conn) throws SQLException {
 			try {
-				PreparedStatement ps = conn.prepareStatement("SELECT MIN(data_id) as min_data_id, MAX(data_id) as max_data_id FROM blocking_data;");
+				PreparedStatement ps = conn.prepareStatement("SELECT MAX(data_id) as max_data_id FROM blocking_data;");
 				ResultSet rs = ps.executeQuery();
 				rs.next();
-				int lower = rs.getInt("min_data_id");
-				int upper = rs.getInt("max_data_id");
-				int[] ids = ThreadLocalRandom.current().ints(lower, upper).distinct().limit(num_queries_per_task).toArray();
+				int max = rs.getInt("max_data_id");
+				Set<Integer> ids = new HashSet<Integer>();
+				while (ids.size() < num_queries_per_task) {
+					ids.add(ThreadLocalRandom.current().nextInt(0, max));
+				}
 				ps = conn.prepareStatement("UPDATE blocking_data SET data_value = ?, modified_by = ? WHERE data_id = ?;");
 				for (int id : ids) {
 					ps.setDouble(1, (float) (rand.nextDouble()*max_value));
